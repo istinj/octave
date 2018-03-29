@@ -1,0 +1,36 @@
+clear;
+a = randi(10,[2,2]);
+b = randi(10,[2,2]);
+c = randi(10,[2,2]);
+d = randi(10,[2,2]);
+e = randi(10,[2,2]);
+f = randi(10,[2,2]);
+g = randi(10,[2,2]);
+h = randi(10,[2,2]);
+i = randi(10,[2,2]);
+
+a = a'*a;
+b = b' *b;
+c = c'*c;
+d = d'*d;
+e = e'*e;
+f = f'*f;
+g = g'*g;
+h = h'*h;
+i = i'*i;
+
+temp = zeros(12,12);
+temp(1:2,1:2) = a;
+temp(1:2,5:6) = b;
+temp(5:6,1:2) = b';
+temp(3:4,3:4) = c;
+temp(5:6,5:6) = e;
+temp(7:8,7:8) = f;
+temp(9:10,9:10) = h;
+temp(11:12,11:12) = i;
+temp(3:4,9:10) = d;
+temp(9:10,3:4) = d';
+temp(3:4,9:10) = d;
+temp(7:8,9:10) = g;
+temp(9:10,7:8) = g';
+A = temp'*temp;
