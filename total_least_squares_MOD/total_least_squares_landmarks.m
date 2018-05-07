@@ -6,7 +6,7 @@ source "./total_least_squares_indices.m"
 
 # error and jacobian of a measured landmark
 # input:
-#   Xr: the robot pose in world frame (4x4 homogeneous matrix)
+#   Xr: the robot pose (4x4 homogeneous matrix)
 #   Xl: the landmark pose (3x1 vector, 3d pose in world frame)
 #   z:  measured position of landmark
 # output:
@@ -17,17 +17,14 @@ source "./total_least_squares_indices.m"
 #       landmark
 
 function [e,Jr,Jl]=landmarkErrorAndJacobian(Xr,Xl,z)
-  # inverse transform
-  iR=Xr(1:3,1:3)';
-  it=-iR*Xr(1:3,4);
-  
-  #prediction
-  z_hat=iR*Xl+it; 
-  e=z_hat-z;
-  Jr=zeros(3,6);
-  Jr(1:3,1:3)=-iR;
-  Jr(1:3,4:6)=iR*skew(Xl);
-  Jl=iR;
+   R=Xr(1:3,1:3);
+   t=Xr(1:3,4);
+   z_hat=R*Xl+t; #prediction
+   e=z_hat-z;
+   Jr=zeros(3,6);
+   Jr(1:3,1:3)=eye(3);
+   Jr(1:3,4:6)=-skew(z_hat);
+   Jl=R;
 endfunction;
 
 

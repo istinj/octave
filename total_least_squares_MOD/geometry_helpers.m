@@ -56,9 +56,21 @@ endfunction
 #from 6d vector to homogeneous matrix
 function T=v2t(v)
     T=eye(4);
-    T(1:3,1:3)=Rx(v(4))*Ry(v(5))*Rz(v(6));
+    T(1:3,1:3)=Rz(v(4))*Ry(v(5))*Rx(v(6));
     T(1:3,4)=v(1:3);
 endfunction;
+
+function v = t2v(T)
+  v = zeros(6,1);
+  v(1:3,1) = T(1:3,4);
+  euler_angles = rotm2eul(T(1:3,1:3),'ZYX');
+  v(4:end,1) = euler_angles; 
+  
+%  theta = -asin(T(3,3));
+%  psi = -atan2(T(3,2),T(3,3));
+%  phi = atan2(T(2,1)/cos(theta), T(1,1)/cos(theta));
+%  v(4:end,1) = [phi;theta;psi];
+endfunction
 
 function S=skew(v)
   S=[0,    -v(3), v(2);

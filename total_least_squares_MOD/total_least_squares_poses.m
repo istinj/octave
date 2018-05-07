@@ -1,7 +1,7 @@
 source "./geometry_helpers.m"
 source "./total_least_squares_indices.m"
 
-# error and jacobian of a measured pose, all poses are in world frame
+# error and jacobian of a measured pose
 # input:
 #   Xi: the observing robot pose (4x4 homogeneous matrix)
 #   Xj: the observed robot pose (4x4 homogeneous matrix)
@@ -11,6 +11,23 @@ source "./total_least_squares_indices.m"
 #       first pose
 #   Jj : 12x6 derivative w.r.t a the error and a perturbation of the
 #       second pose
+function [e]=computeError(Xi,Xj,Z)
+  Ri=Xi(1:3,1:3);
+  Rj=Xj(1:3,1:3);
+  ti=Xi(1:3,4);
+  tj=Xj(1:3,4);
+  tij=tj-ti;
+  Ri_transpose=Ri';
+  
+  Z_hat=eye(4);
+  Z_hat(1:3,1:3)=Ri_transpose*Rj;
+  Z_hat(1:3,4)=Ri_transpose*tij;
+  
+  inv_Z_hat = eye(4,4);
+  inv_Z_hat(1:3,1:3) = transpose(Z_hat(1:3,1:3));
+  inv_Z_hat(1:3,4) = transpose(Z_hat(1:3,1:3)) * Z_hat(1:3,4);
+  e = t2v(inv_Z_hat * Z);
+endfunction
 
 function [e,Ji,Jj]=poseErrorAndJacobian(Xi,Xj,Z)
   global Rx0;
@@ -41,6 +58,44 @@ function [e,Ji,Jj]=poseErrorAndJacobian(Xi,Xj,Z)
   Z_hat(1:3,1:3)=Ri_transpose*Rj;
   Z_hat(1:3,4)=Ri_transpose*tij;
   e=flattenIsometryByColumns(Z_hat-Z);
+%  
+  % normal error and jacobian
+%  e = computeError(Xi,Xj,Z);
+%  
+%  Ji = zeros(6,6);
+%  Jj = zeros(6,6);
+%  epsilon = 1e-5;
+%  for i = 1:6
+%    deltaX_plus = zeros(6,1);
+%    deltaX_minus = zeros(6,1);
+%    deltaX_plus(i,1) = epsilon;
+%    deltaX_minus(i,1) = -epsilon;
+%    Xi_plus = v2t(deltaX_plus) * Xi;
+%    Xi_minus = v2t(deltaX_minus) * Xi;
+%    
+%    e_temp_plus = computeError(Xi_plus, Xj, Z);
+%    e_temp_minus = computeError(Xi_minus, Xj, Z);
+%    Ji(:,i) = e_temp_plus - e_temp_minus;
+%  endfor
+% 
+%  for i = 1:6
+%    deltaX_plus = zeros(6,1);
+%    deltaX_minus = zeros(6,1);
+%    deltaX_plus(i,1) = epsilon;
+%    deltaX_minus(i,1) = -epsilon;
+%    Xj_plus = v2t(deltaX_plus) * Xj;
+%    Xj_minus = v2t(deltaX_minus) * Xj;
+%    
+%    e_temp_plus = computeError(Xi, Xj_plus, Z);
+%    e_temp_minus = computeError(Xi, Xj_minus, Z);
+%    Jj(:,i) = e_temp_plus - e_temp_minus;
+%  endfor
+%  Ji = Ji / 2*epsilon;
+%  Jj = Jj / 2*epsilon;
+%
+%  e
+%  Ji
+%  Jj 
  endfunction;
 
 #linearizes the robot-robot measurements
@@ -61,7 +116,7 @@ function [e,Ji,Jj]=poseErrorAndJacobian(Xi,Xj,Z)
 #   chi_tot: the total chi2 of the current round
 #   num_inliers: number of measurements whose error is below kernel_threshold
 
-function [H,b, chi_tot, num_inliers]=linearizePoses(XR, XL, Zr, associations,num_poses, num_landmarks, kernel_threshold)
+function [H,b, chi_tot, num_inliers, container]=linearizePoses(XR, XL, Zr, associations,num_poses, num_landmarks, kernel_threshold)
   global pose_dim;
   global landmark_dim;
   system_size=pose_dim*num_poses+landmark_dim*num_landmarks; 
@@ -69,14 +124,19 @@ function [H,b, chi_tot, num_inliers]=linearizePoses(XR, XL, Zr, associations,num
   b=zeros(system_size,1);
   chi_tot=0;
   num_inliers=0;
+  index = 1;
   for (measurement_num=1:size(Zr,3))
+%    Omega=eye(6);
+%    Omega(4:end,4:end)*=1e3; # we need to pimp the rotation  part a little
     Omega=eye(12);
-    Omega(1:9,1:9)*=1e3; # we need to pimp the rotation  part a little
+    Omega(1:9,1:9)*=1e6; # we need to pimp the rotation  part a little
+
     pose_i_index=associations(1,measurement_num);
     pose_j_index=associations(2,measurement_num);
     Z=Zr(:,:,measurement_num);
     Xi=XR(:,:,pose_i_index);
     Xj=XR(:,:,pose_j_index);
+
     [e,Ji,Jj] = poseErrorAndJacobian(Xi, Xj, Z);
     chi=e'*Omega*e;
     if (chi>kernel_threshold)
@@ -101,6 +161,20 @@ function [H,b, chi_tot, num_inliers]=linearizePoses(XR, XL, Zr, associations,num
 
     H(pose_j_matrix_index:pose_j_matrix_index+pose_dim-1,
       pose_j_matrix_index:pose_j_matrix_index+pose_dim-1)+=Jj'*Omega*Jj;
+      
+    container(index).indices = [pose_i_matrix_index pose_i_matrix_index];
+    container(index).data = Ji'*Omega*Ji;
+    
+    container(index+1).indices = [pose_i_matrix_index pose_j_matrix_index];
+    container(index+1).data = Ji'*Omega*Jj;
+
+    container(index+2).indices = [pose_j_matrix_index pose_i_matrix_index];
+    container(index+2).data = Jj'*Omega*Ji;
+
+    container(index+3).indices = [pose_j_matrix_index pose_j_matrix_index];
+    container(index+3).data = Jj'*Omega*Jj;
+    
+    index = index + 4;
 
     b(pose_i_matrix_index:pose_i_matrix_index+pose_dim-1)+=Ji'*Omega*e;
     b(pose_j_matrix_index:pose_j_matrix_index+pose_dim-1)+=Jj'*Omega*e;

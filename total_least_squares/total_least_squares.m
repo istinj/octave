@@ -91,7 +91,8 @@ function [XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p,chi_sta
     
     [H_poses, b_poses, chi_, num_inliers_,container] = linearizePoses(XR, XL, Zr, pose_associations,num_poses, num_landmarks, kernel_threshold);
     chi_stats_r(iteration)+=chi_;
-    num_inliers_r(iteration)=num_inliers_;    
+    num_inliers_r(iteration)=num_inliers_;
+    
     
     H=H_poses+H_landmarks+H_projections;
     if (iteration == num_iterations)
@@ -109,10 +110,6 @@ function [XR, XL, chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p,chi_sta
 
     dx(pose_dim+1:end)=-(H(pose_dim+1:end,pose_dim+1:end)\b(pose_dim+1:end,1));
     [XR, XL]=boxPlus(XR,XL,num_poses, num_landmarks, dx);
-    
-    iteration
-    printf('chi2        = %f\n', chi_stats_r(iteration));
-    printf('num inliers = %f\n', num_inliers_r(iteration));
   endfor
   save("-mat7-binary", 'container.mat', "containers");
 endfunction

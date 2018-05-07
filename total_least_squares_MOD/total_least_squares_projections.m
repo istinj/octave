@@ -21,9 +21,9 @@ function p_img=projectPoint(Xr,Xl)
   global image_cols;
   global image_rows;
   global K;
-  iXr=inv(Xr);
+
   p_img=[-1;-1];
-  pw=iXr(1:3,1:3)*Xl+iXr(1:3,4);
+  pw=Xr(1:3,1:3)*Xl+Xr(1:3,4);
   if (pw(3)<0)
      return;
   endif;
@@ -41,7 +41,7 @@ endfunction
 
 # error and jacobian of a measured landmark
 # input:
-#   Xr: the robot pose in world frame (4x4 homogeneous matrix)
+#   Xr: the robot pose (4x4 homogeneous matrix)
 #   Xl: the landmark pose (3x1 vector, 3d pose in world frame)
 #   z:  projection of the landmark on the image plane
 # output:
@@ -60,20 +60,18 @@ function [is_valid, e,Jr,Jl]=projectionErrorAndJacobian(Xr,Xl,z)
   e=[0;0];
   Jr=zeros(2,6);
   Jl=zeros(2,3);
-  
-  # inverse transform
-  iR=Xr(1:3,1:3)';
-  it=-iR*Xr(1:3,4);
+  R=Xr(1:3,1:3);
+  t=Xr(1:3,4);
 
-  pw=iR*Xl+it; #point prediction, in world scale
+  pw=R*Xl+t; #point prediction, in world scale
   if (pw(2)<0)
      return;
   endif
 
   Jwr=zeros(3,6);
-  Jwr(1:3,1:3)=-iR;
-  Jwr(1:3,4:6)=iR*skew(Xl);
-  Jwl=iR;
+  Jwr(1:3,1:3)=eye(3);
+  Jwr(1:3,4:6)=-skew(pw);
+  Jwl=R;
   
   p_cam=K*pw;
   iz=1./p_cam(3);

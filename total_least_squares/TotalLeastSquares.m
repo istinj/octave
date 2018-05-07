@@ -4,8 +4,8 @@ clc; clear all; close all;
 source "./total_least_squares.m"
 
 # synthesis of the virtual world
-num_landmarks=0;
-num_poses=20;
+num_landmarks=5;
+num_poses=5;
 world_size=10;
 
 # landmarks in a matrix, one per column

@@ -1,10 +1,11 @@
 # This is an integrated example that comprises
 # 
+clc; clear all; close all;
 source "./total_least_squares.m"
 
 # synthesis of the virtual world
-num_landmarks=20;
-num_poses=10;
+num_landmarks=0;
+num_poses=5;
 world_size=10;
 
 # landmarks in a matrix, one per column
@@ -45,12 +46,12 @@ landmark_associations=zeros(2,num_landmark_measurements);
 
 measurement_num=1;
 for (pose_num=1:num_poses)
-    Xr=inv(XR_true(:,:,pose_num));
+    Xr=XR_true(:,:,pose_num);
     for (landmark_num=1:num_landmarks)
-	Xl=XL_true(:,landmark_num);
-	landmark_associations(:,measurement_num)=[pose_num,landmark_num]';
-	Zl(:,measurement_num)=Xr(1:3,1:3)*Xl+Xr(1:3,4);
-	measurement_num++;
+      Xl=XL_true(:,landmark_num);
+      landmark_associations(:,measurement_num)=[pose_num,landmark_num]';
+      Zl(:,measurement_num)=Xr(1:3,1:3)*Xl+Xr(1:3,4);
+      measurement_num++;
     endfor;
 endfor
 
@@ -65,13 +66,13 @@ measurement_num=1;
 for (pose_num=1:num_poses)
     Xr=XR_true(:,:,pose_num);
     for (landmark_num=1:num_landmarks)
-	Xl=XL_true(:,landmark_num);
-	z_img=projectPoint(Xr,Xl);
-	if (z_img(1)>0)
-	  projection_associations(:,measurement_num)=[pose_num, landmark_num]';
-	  Zp(:,measurement_num)=z_img;
-	  measurement_num++;
-	endif;
+      Xl=XL_true(:,landmark_num);
+      z_img=projectPoint(Xr,Xl);
+      if (z_img(1)>0)
+        projection_associations(:,measurement_num)=[pose_num, landmark_num]';
+        Zp(:,measurement_num)=z_img;
+        measurement_num++;
+      endif;
     endfor;
 endfor
 # crop the projection associations to something meaningful
@@ -89,12 +90,10 @@ pose_associations=zeros(2,num_pose_measurements);
 
 measurement_num=1;
 for (pose_num=1:num_poses-1)
-
     Xi=XR_true(:,:,pose_num);
     Xj=XR_true(:,:,pose_num+1);
     pose_associations(:,measurement_num)=[pose_num, pose_num+1]';
     Zr(:,:,measurement_num)=inv(Xi)*Xj;
-
     measurement_num++;
 endfor
 
@@ -121,18 +120,18 @@ XL_guess+=dXl;
 ############################## CALL SOLVER  ################################## 
 
 # uncomment the following to suppress pose-landmark measurements
-#Zl=zeros(3,0);
+Zl=zeros(3,0);
 
 # uncomment the following to suppress pose-landmark-projection measurements
-#num_landmarks=0;
-# Zp=zeros(3,0);
+Zp=zeros(3,0);
 
 # uncomment the following to suppress pose-pose measurements
-# Zr=zeros(4,4,0);
+#Zr=zeros(4,4,0);
 
 damping=0;
 kernel_threshold=1e3;
 num_iterations=10;
+tic;
 [XR, XL,chi_stats_l, num_inliers_l, chi_stats_p, num_inliers_p, chi_stats_r, num_inliers_r]=doTotalLS(XR_guess, XL_guess, 
 												      Zl, landmark_associations, 
 												      Zp, projection_associations, 
@@ -142,3 +141,4 @@ num_iterations=10;
 												      num_iterations, 
 												      damping, 
 												      kernel_threshold);
+toc;

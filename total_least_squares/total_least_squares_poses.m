@@ -11,91 +11,36 @@ source "./total_least_squares_indices.m"
 #       first pose
 #   Jj : 12x6 derivative w.r.t a the error and a perturbation of the
 #       second pose
-function [e]=computeError(Xi,Xj,Z)
+
+function [e,Ji,Jj]=poseErrorAndJacobian(Xi,Xj,Z)
+  global Rx0;
+  global Ry0;
+  global Rz0;
   Ri=Xi(1:3,1:3);
   Rj=Xj(1:3,1:3);
   ti=Xi(1:3,4);
   tj=Xj(1:3,4);
   tij=tj-ti;
   Ri_transpose=Ri';
+  Ji=zeros(12,6);
+  Jj=zeros(12,6);
   
+  dR_dax=Ri_transpose*Rx0*Rj;
+  dR_day=Ri_transpose*Ry0*Rj;
+  dR_daz=Ri_transpose*Rz0*Rj;
+  
+  Jj(1:9,4)=reshape(dR_dax, 9, 1);
+  Jj(1:9,5)=reshape(dR_day, 9, 1);
+  Jj(1:9,6)=reshape(dR_daz, 9, 1);
+  Jj(10:12,1:3)=Ri_transpose;
+  
+  Jj(10:12,4:6)=-Ri_transpose*skew(tj);
+  Ji=-Jj;
+
   Z_hat=eye(4);
   Z_hat(1:3,1:3)=Ri_transpose*Rj;
   Z_hat(1:3,4)=Ri_transpose*tij;
-  
-  inv_Z_hat = eye(4,4);
-  inv_Z_hat(1:3,1:3) = transpose(Z_hat(1:3,1:3));
-  inv_Z_hat(1:3,4) = transpose(Z_hat(1:3,1:3)) * Z_hat(1:3,4);
-  e = t2v(inv_Z_hat * Z);
-endfunction
-
-function [e,Ji,Jj]=poseErrorAndJacobian(Xi,Xj,Z)
-%  global Rx0;
-%  global Ry0;
-%  global Rz0;
-%  Ri=Xi(1:3,1:3);
-%  Rj=Xj(1:3,1:3);
-%  ti=Xi(1:3,4);
-%  tj=Xj(1:3,4);
-%  tij=tj-ti;
-%  Ri_transpose=Ri';
-%  Ji=zeros(12,6);
-%  Jj=zeros(12,6);
-%  
-%  dR_dax=Ri_transpose*Rx0*Rj;
-%  dR_day=Ri_transpose*Ry0*Rj;
-%  dR_daz=Ri_transpose*Rz0*Rj;
-%  
-%  Jj(1:9,4)=reshape(dR_dax, 9, 1);
-%  Jj(1:9,5)=reshape(dR_day, 9, 1);
-%  Jj(1:9,6)=reshape(dR_daz, 9, 1);
-%  Jj(10:12,1:3)=Ri_transpose;
-%  
-%  Jj(10:12,4:6)=-Ri_transpose*skew(tj);
-%  Ji=-Jj;
-%
-%  Z_hat=eye(4);
-%  Z_hat(1:3,1:3)=Ri_transpose*Rj;
-%  Z_hat(1:3,4)=Ri_transpose*tij;
-%  e=flattenIsometryByColumns(Z_hat-Z);
-%  
-  % normal error and jacobian
-  e = computeError(Xi,Xj,Z);
-  
-  Ji = zeros(6,6);
-  Jj = zeros(6,6);
-  epsilon = 1e-5;
-  for i = 1:6
-    deltaX_plus = zeros(6,1);
-    deltaX_minus = zeros(6,1);
-    deltaX_plus(i,1) = epsilon;
-    deltaX_minus(i,1) = -epsilon;
-    Xi_plus = v2t(deltaX_plus) * Xi;
-    Xi_minus = v2t(deltaX_minus) * Xi;
-    
-    e_temp_plus = computeError(Xi_plus, Xj, Z);
-    e_temp_minus = computeError(Xi_minus, Xj, Z);
-    Ji(:,i) = e_temp_plus - e_temp_minus;
-  endfor
- 
-  for i = 1:6
-    deltaX_plus = zeros(6,1);
-    deltaX_minus = zeros(6,1);
-    deltaX_plus(i,1) = epsilon;
-    deltaX_minus(i,1) = -epsilon;
-    Xj_plus = v2t(deltaX_plus) * Xj;
-    Xj_minus = v2t(deltaX_minus) * Xj;
-    
-    e_temp_plus = computeError(Xi, Xj_plus, Z);
-    e_temp_minus = computeError(Xi, Xj_minus, Z);
-    Jj(:,i) = e_temp_plus - e_temp_minus;
-  endfor
-  Ji = Ji / 2*epsilon;
-  Jj = Jj / 2*epsilon;
-
-  e
-  Ji
-  Jj 
+  e=flattenIsometryByColumns(Z_hat-Z);
  endfunction;
 
 #linearizes the robot-robot measurements
@@ -126,8 +71,8 @@ function [H,b, chi_tot, num_inliers, container]=linearizePoses(XR, XL, Zr, assoc
   num_inliers=0;
   index = 1;
   for (measurement_num=1:size(Zr,3))
-    Omega=eye(6);
-    Omega(4:end,4:end)*=1e3; # we need to pimp the rotation  part a little
+    Omega=eye(12);
+    Omega(1:9,1:9)*=1e3; # we need to pimp the rotation  part a little
     pose_i_index=associations(1,measurement_num);
     pose_j_index=associations(2,measurement_num);
     Z=Zr(:,:,measurement_num);
